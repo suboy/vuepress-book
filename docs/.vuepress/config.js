@@ -15,7 +15,7 @@ export default defineUserConfig({
   lang: 'zh-CN',
   title: '开发笔记',
   description: 'Just playing around',
-  base: '/',
+  base: '/vuepress-book/',
   head: [['script', { src: 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-9615232600361986', async:true, crossorigin: 'anonymous' }]],
   theme: defaultTheme({
     navbar: [{
