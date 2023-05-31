@@ -12,9 +12,9 @@ date: "2021-03-16"
 配置nginx:
 
 location ~ .php?.\*$ {  
-fastcgi\_split\_path\_info ^(.+.php)(/.+)$;  
-include snippets/fastcgi-php.conf;  
-fastcgi\_pass unix:/var/run/php/php7.4-fpm.sock;  
+  fastcgi\_split\_path\_info ^(.+.php)(/.+)$;  
+  include snippets/fastcgi-php.conf;  
+  fastcgi\_pass unix:/var/run/php/php7.4-fpm.sock;  
 }
 
 php.ini  

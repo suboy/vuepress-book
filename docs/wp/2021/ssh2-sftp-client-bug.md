@@ -5,7 +5,7 @@ date: "2021-08-23"
 
 作者没有考虑到windows和linux下ENOENT的错误码不同，导致上传文件失败，平台兼容性还是很重要的
 
-```
+``` js
 function haveLocalAccess(filePath, mode = "r") {
   const accessMode =
     fs.constants.F_OK | (mode === "w") ? fs.constants.W_OK : fs.constants.R_OK;

@@ -5,7 +5,7 @@ date: "2021-11-08"
 
 在ready之前，将自定义schema注册为标准协议：
 
-```
+``` js
 protocol.registerSchemesAsPrivileged([{
     scheme: scheme,
     privileges: {
@@ -18,7 +18,7 @@ protocol.registerSchemesAsPrivileged([{
 
 createWindow时defaultSession下注册schema并设置回调函数，返回本地文件的内容：
 
-```
+``` js
 session.defaultSession.protocol.registerBufferProtocol(scheme, (request, callback) => {
     console.log('registerBufferProtocol', request)
     callback({ mimeType: 'text/html', data: Buffer.from('<h5>register Response</h5>') })
@@ -33,7 +33,7 @@ session.defaultSession.protocol.interceptBufferProtocol(scheme, (details, callba
 
 defaultSession拦截网络请求重定向到本地协议schema：
 
-```
+``` js
 session.defaultSession.webRequest.onBeforeRequest(filter, (details, callback) => {
         console.log('onBeforeRequest', details)
         callback({

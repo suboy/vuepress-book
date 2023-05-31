@@ -3,6 +3,8 @@ title: "添加sftp only帐号"
 date: "2019-07-15"
 ---
 
+有时候ssh到远程主机，只想传文件不会用到shell，就可以创建一个sftp only的账号
+
 1. 新建用户sftp, useradd -d /home/sftp -s /sbin/nologin sftp
 
 3. home/sftp目录要是root:root 755  
