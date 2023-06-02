@@ -35,6 +35,7 @@ export default defineUserConfig({
     }),
     registerComponentsPlugin({
       components: {
+        waterRipple: path.resolve(__dirname, './components/waterRipple.vue'),
         adSense: path.resolve(__dirname, './components/adSense.vue')
       }
     })

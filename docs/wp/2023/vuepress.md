@@ -111,5 +111,6 @@ jobs:
 6. build deploy都没问题就能发布到gh-page去了\
 ![](images/action.jpg)
 7. 添加https在项目的settings/pages/Custom domain，事先要准备域名cname到github.io的page，然后再这里启用https，证书什么的github会帮你搞好
+8. 每次发布都要重新配置一遍自定义域名
 
 <adSense/>
