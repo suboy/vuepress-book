@@ -192,10 +192,9 @@ function isPowerOfTwo(x) {    // 2的倍数
 }
 
 let gl = null
-const config = loadConfig();
-const transparentPixels = createImageData(32, 32);
 
 const Ripples = function (el, options) {
+  const config = loadConfig();
   const that = this;
   this.el = el
   this.elCss = window.getComputedStyle(el, null)
@@ -615,6 +614,7 @@ Ripples.prototype = {
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
   },
   setTransparentTexture() {
+    const transparentPixels = createImageData(32, 32);
     gl.bindTexture(gl.TEXTURE_2D, this.backgroundTexture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, transparentPixels);
   },

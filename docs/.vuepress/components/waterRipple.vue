@@ -10,7 +10,7 @@
   <button @click="playRipple">play</button>
 </template>
 <script>
-import { reactive, toRefs, nextTick } from 'vue'
+import { reactive, toRefs, onMounted } from 'vue'
 import initRipples from '../libs/useWaterRipple.js'
 
 export default {
@@ -24,22 +24,24 @@ export default {
     })
     // console.log(import.meta.url)
     const image = ()=>import(attrs.image)
-    image().then((data)=>{
-      // console.log(data)
-      // state.image = data.default
-      state.ripple = initRipples(state.rippleRef, {
-        imageUrl: data.default,   // 背景图url
-        rain: true,               // 自动滴水
-        interactive: true,        // 鼠标滑过波纹
+    onMounted(()=>{
+      image().then((data)=>{
+        // console.log(data)
+        // state.image = data.default
+        state.ripple = initRipples(state.rippleRef, {
+          imageUrl: data.default,   // 背景图url
+          rain: true,               // 自动滴水
+          interactive: true,        // 鼠标滑过波纹
+        })
+        window.addEventListener("blur", ()=>{
+          state.ripple.pause()
+        })
+        window.addEventListener("focus", ()=>{
+          state.ripple.play()
+        })
+      }).catch(e=>{
+        console.log('import', attrs.image, e)
       })
-      window.addEventListener("blur", ()=>{
-        state.ripple.pause()
-      })
-      window.addEventListener("focus", ()=>{
-        state.ripple.play()
-      })
-    }).catch(e=>{
-      console.log('import', attrs.image, e)
     })
     return {
       ...toRefs(state),

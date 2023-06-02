@@ -16,6 +16,8 @@ jquery.ripples: https://github.com/sirxemic/jquery.ripples
   * 能通过attrs传递过去，单数会包一个警告
   * 在组件中要()=>import(attrs.image)加载出url，然后通过Ripple的imageUrl参数传递进去
   * 最好使用nextTick初始化Ripple，防止dom没准备好而出现异常效果
+- 由于vue代码部分是用nodejs编译的，也就是跟SSR一样。代码中涉及到dom的部分，要在浏览器环境中才能执行，否则会报“ReferenceError: window is not defined”
+  * 将loadConfig延后执行
 
 <!-- ![](images/river.jpg) -->
 

@@ -1,7 +1,7 @@
 import { defineUserConfig } from 'vuepress'
 import { defaultTheme } from '@vuepress/theme-default'
 import { googleAnalyticsPlugin } from '@vuepress/plugin-google-analytics'
-import { registerComponentsPlugin } from '@vuepress/plugin-register-components'
+// import { registerComponentsPlugin } from '@vuepress/plugin-register-components'
 import { globSync } from 'glob'
 import path from 'path'
 
@@ -33,11 +33,11 @@ export default defineUserConfig({
     googleAnalyticsPlugin({
       id: 'G-1PPH0NSYVE'
     }),
-    registerComponentsPlugin({
-      components: {
-        waterRipple: path.resolve(__dirname, './components/waterRipple.vue'),
-        adSense: path.resolve(__dirname, './components/adSense.vue')
-      }
-    })
+    // registerComponentsPlugin({
+    //   components: {
+    //     waterRipple: path.resolve(__dirname, './components/waterRipple.vue'),
+    //     adSense: path.resolve(__dirname, './components/adSense.vue')
+    //   }
+    // })
   ]
 })
