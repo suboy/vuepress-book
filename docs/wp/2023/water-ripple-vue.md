@@ -12,13 +12,12 @@ jquery.ripples: https://github.com/sirxemic/jquery.ripples
   * 初始化一个容器元素，append是个canvas，设置canvas浮动在容器上面
   * 初始化canvas webgl，设置各种参数
 - 波纹算法部分是用WebGLRenderingContext实现的，改天再研究看看
-- 波纹效果要配一张背景图才好看，试试md向component传图片参数
-  * 能通过attrs传递过去，单数会包一个警告
-  * 在组件中要()=>import(attrs.image)加载出url，然后通过Ripple的imageUrl参数传递进去
+- 波纹效果要配一张背景图才好看，但是不能从md传递url到vue
+  * 在.vuepress下新建一个assets用来放图片吧，剩下的就跟平时用vue一样的了
   * 最好使用nextTick初始化Ripple，防止dom没准备好而出现异常效果
 - 由于vue代码部分是用nodejs编译的，也就是跟SSR一样。代码中涉及到dom的部分，要在浏览器环境中才能执行，否则会报“ReferenceError: window is not defined”
   * 将loadConfig延后执行
 
 <!-- ![](images/river.jpg) -->
 
-<waterRipple image="../../wp/2023/images/river.jpg"/>
+<waterRipple/>

@@ -12,10 +12,11 @@
 <script>
 import { reactive, toRefs, onMounted } from 'vue'
 import initRipples from '../libs/useWaterRipple.js'
+import bgImage from '../assets/river.jpg'
 
 export default {
   name: 'waterRipple',
-  setup(props, { attrs }) {
+  setup() {
     // console.log(props, attrs)
     const state = reactive({
       image: '',
@@ -23,24 +24,19 @@ export default {
       ripple: null
     })
     // console.log(import.meta.url)
-    const image = ()=>import(attrs.image)
     onMounted(()=>{
-      image().then((data)=>{
-        // console.log(data)
-        // state.image = data.default
-        state.ripple = initRipples(state.rippleRef, {
-          imageUrl: data.default,   // 背景图url
-          rain: true,               // 自动滴水
-          interactive: true,        // 鼠标滑过波纹
-        })
-        window.addEventListener("blur", ()=>{
-          state.ripple.pause()
-        })
-        window.addEventListener("focus", ()=>{
-          state.ripple.play()
-        })
-      }).catch(e=>{
-        console.log('import', attrs.image, e)
+      // console.log(data)
+      // state.image = data.default
+      state.ripple = initRipples(state.rippleRef, {
+        imageUrl: bgImage,   // 背景图url
+        rain: true,               // 自动滴水
+        interactive: true,        // 鼠标滑过波纹
+      })
+      window.addEventListener("blur", ()=>{
+        state.ripple.pause()
+      })
+      window.addEventListener("focus", ()=>{
+        state.ripple.play()
       })
     })
     return {
