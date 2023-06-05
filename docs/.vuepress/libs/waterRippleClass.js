@@ -2,92 +2,6 @@ function isPercentage(str) {
   return str[str.length - 1] == '%';
 }
 
-function loadConfig() {
-  const canvas = document.createElement('canvas');
-  const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-
-  if (!gl) {
-    // Browser does not support WebGL.
-    return null;
-  }
-
-  // Load extensions
-  const extensions = {};
-  [
-    'OES_texture_float',
-    'OES_texture_half_float',
-    'OES_texture_float_linear',
-    'OES_texture_half_float_linear'
-  ].forEach((name)=>{
-    const extension = gl.getExtension(name);
-    if (extension) {
-      extensions[name] = extension;
-    }
-  });
-
-  // If no floating point extensions are supported we can bail out early.
-  if (!extensions.OES_texture_float) {
-    return null;
-  }
-
-  const configs = [];
-
-  function createConfig(type, glType, arrayType) {
-    const name = 'OES_texture_' + type;
-    const nameLinear = name + '_linear';
-    const linearSupport = nameLinear in extensions
-    const configExtensions = [name];
-
-    if (linearSupport) {
-      configExtensions.push(nameLinear);
-    }
-
-    return {
-      type: glType,
-      arrayType: arrayType,
-      linearSupport: linearSupport,
-      extensions: configExtensions
-    };
-  }
-
-  configs.push(
-    createConfig('float', gl.FLOAT, Float32Array)
-  );
-
-  if (extensions.OES_texture_half_float) {
-    configs.push(
-      // Array type should be Uint16Array, but at least on iOS that breaks. In that case we
-      // just initialize the textures with data=null, instead of data=new Uint16Array(...).
-      // This makes initialization a tad slower, but it's still negligible.
-      createConfig('half_float', extensions.OES_texture_half_float.HALF_FLOAT_OES, null)
-    );
-  }
-
-  // Setup the texture and framebuffer
-  const texture = gl.createTexture();
-  const framebuffer = gl.createFramebuffer();
-
-  gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-  gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-
-  // Check for each supported texture type if rendering to it is supported
-  let config = null;
-
-  for (var i = 0; i < configs.length; i++) {
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 32, 32, 0, gl.RGBA, configs[i].type, null);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-    if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE) {
-      config = configs[i];
-      break;
-    }
-  }
-  return config;
-}
-
 function createImageData(width, height) {
   try {
     return new ImageData(width, height);
@@ -135,45 +49,6 @@ function translateBackgroundPosition(value) {
   }
 }
 
-function createProgram(vertexSource, fragmentSource, uniformValues) {
-  function compileSource(type, source) {
-    const shader = gl.createShader(type);
-    gl.shaderSource(shader, source);
-    gl.compileShader(shader);
-    if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-      throw new Error('compile error: ' + gl.getShaderInfoLog(shader));
-    }
-    return shader;
-  }
-
-  var program = {};
-
-  program.id = gl.createProgram();
-  gl.attachShader(program.id, compileSource(gl.VERTEX_SHADER, vertexSource));
-  gl.attachShader(program.id, compileSource(gl.FRAGMENT_SHADER, fragmentSource));
-  gl.linkProgram(program.id);
-  if (!gl.getProgramParameter(program.id, gl.LINK_STATUS)) {
-    throw new Error('link error: ' + gl.getProgramInfoLog(program.id));
-  }
-
-  // Fetch the uniform and attribute locations
-  program.uniforms = {};
-  program.locations = {};
-  gl.useProgram(program.id);
-  gl.enableVertexAttribArray(0);
-  var match, name, regex = /uniform (\w+) (\w+)/g, shaderCode = vertexSource + fragmentSource;
-  while ((match = regex.exec(shaderCode)) != null) {
-    name = match[2];
-    program.locations[name] = gl.getUniformLocation(program.id, name);
-  }
-  return program;
-}
-
-function bindTexture(texture, unit) {
-  gl.activeTexture(gl.TEXTURE0 + (unit || 0));
-  gl.bindTexture(gl.TEXTURE_2D, texture);
-}
-
 function extractUrl(value) {
   const urlMatch = /url\(["']?([^"']*)["']?\)/.exec(value);
   if (urlMatch == null) {
@@ -190,130 +65,241 @@ function isPowerOfTwo(x) {    // 2的倍数
   return (x & (x - 1)) == 0;
 }
 
-let gl = null
-
-const Ripples = function (el, options) {
-  const config = loadConfig();
-  const that = this;
-  this.el = el
-  this.elCss = window.getComputedStyle(el, null)
-  Object.assign(el.style, {
-    position: 'relative',
-    zIndex: 0,
-    backgroundSize: 'cover',
-    backgroundPosition: 'center bottom',
-    backgroundRepeat: 'no-repeat',
-  })
-  
-  // Init properties from options
-  this.interactive = options.interactive;
-  this.resolution = options.resolution;
-  this.textureDelta = new Float32Array([1 / this.resolution, 1 / this.resolution]);
-
-  this.perturbance = options.perturbance;
-  this.dropRadius = options.dropRadius;
-
-  this.crossOrigin = options.crossOrigin;
-  this.imageUrl = options.imageUrl;
-
-  // Init WebGL canvas
-  var canvas = document.createElement('canvas');
-  canvas.width = this.el.offsetWidth;
-  canvas.height = this.el.offsetHeight;
-  this.canvas = canvas;
-  Object.assign(this.canvas.style, {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    right: 0,
-    bottom: 0,
-    zIndex: -1
-  })
-
-  this.el.appendChild(canvas);
-
-  this.context = gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-  console.log(gl)
-  // Load extensions
-  config.extensions.forEach((name)=>{
-    gl.getExtension(name);
-  });
-
-  // Auto-resize when window size changes.
-  this.updateSize = this.updateSize.bind(this)
-  window.addEventListener('resize', this.updateSize);
-
-  // Init rendertargets for ripple data.
-  this.textures = [];
-  this.frameBuffers = [];
-  this.bufferWriteIndex = 0;
-  this.bufferReadIndex = 1;
-
-  const arrayType = config.arrayType
-  const textureData = arrayType ? new arrayType(this.resolution * this.resolution * 4) : null;
-
-  for (var i = 0; i < 2; i++) {
-    const texture = gl.createTexture();
-    const framebuffer = gl.createFramebuffer();
-    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
-    gl.bindTexture(gl.TEXTURE_2D, texture);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, config.linearSupport ? gl.LINEAR : gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, config.linearSupport ? gl.LINEAR : gl.NEAREST);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.resolution, this.resolution, 0, gl.RGBA, config.type, textureData);
-    gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-    this.textures.push(texture);
-    this.frameBuffers.push(framebuffer);
+export default class WaterRipple {
+  static #config = null
+  static defaultOptions = {
+    imageUrl: null,
+    resolution: 256,
+    dropRadius: 20,
+    perturbance: 0.03,
+    interactive: true,
+    crossOrigin: '',
+    rain: true
   }
-
-  // Init GL stuff
-  this.quad = gl.createBuffer();
-  gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
-  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
-    -1, -1, +1, -1,
-    +1, +1, -1, +1
-  ]), gl.STATIC_DRAW);
-
-  this.initShaders();
-  // this.initTexture();
-  // this.setTransparentTexture();
-  this.loadImage();
-
-  // Set correct clear color and blend mode (regular alpha blending)
-  gl.clearColor(0, 0, 0, 0);
-  gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-
-  // Plugin is successfully initialized!
-  this.visible = true;
-  this.running = true;
-  this.inited = true;
-  this.destroyed = false;
-
-  this.setupPointerEvents();
-
-  // Init animation
-  function step() {
-    if (!that.destroyed) {
-      that.step();
-      requestAnimationFrame(step);
+  static #loadConfig() {
+    const canvas = document.createElement('canvas');
+    const webgl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    if (!webgl) {
+      // Browser does not support WebGL.
+      return null;
+    }
+    // Load extensions
+    const extensions = {};
+    [
+      'OES_texture_float',
+      'OES_texture_half_float',
+      'OES_texture_float_linear',
+      'OES_texture_half_float_linear'
+    ].forEach((name)=>{
+      const extension = webgl.getExtension(name);
+      if (extension) {
+        extensions[name] = extension;
+      }
+    });
+    // If no floating point extensions are supported we can bail out early.
+    if (!extensions.OES_texture_float) {
+      return null;
+    }
+    const configs = [];
+    function createConfig(type, glType, arrayType) {
+      const name = 'OES_texture_' + type;
+      const nameLinear = name + '_linear';
+      const linearSupport = nameLinear in extensions
+      const configExtensions = [name];
+      if (linearSupport) {
+        configExtensions.push(nameLinear);
+      }
+      return {
+        type: glType,
+        arrayType: arrayType,
+        linearSupport: linearSupport,
+        extensions: configExtensions
+      };
+    }
+    configs.push(
+      createConfig('float', webgl.FLOAT, Float32Array)
+    );
+    if (extensions.OES_texture_half_float) {
+      configs.push(
+        // Array type should be Uint16Array, but at least on iOS that breaks. In that case we
+        // just initialize the textures with data=null, instead of data=new Uint16Array(...).
+        // This makes initialization a tad slower, but it's still negligible.
+        createConfig('half_float', extensions.OES_texture_half_float.HALF_FLOAT_OES, null)
+      );
+    }
+    // Setup the texture and framebuffer
+    const texture = webgl.createTexture();
+    const framebuffer = webgl.createFramebuffer();
+    webgl.bindFramebuffer(webgl.FRAMEBUFFER, framebuffer);
+    webgl.bindTexture(webgl.TEXTURE_2D, texture);
+    webgl.texParameteri(webgl.TEXTURE_2D, webgl.TEXTURE_MIN_FILTER, webgl.NEAREST);
+    webgl.texParameteri(webgl.TEXTURE_2D, webgl.TEXTURE_MAG_FILTER, webgl.NEAREST);
+    webgl.texParameteri(webgl.TEXTURE_2D, webgl.TEXTURE_WRAP_S, webgl.CLAMP_TO_EDGE);
+    webgl.texParameteri(webgl.TEXTURE_2D, webgl.TEXTURE_WRAP_T, webgl.CLAMP_TO_EDGE);
+    // Check for each supported texture type if rendering to it is supported
+    for (var i = 0; i < configs.length; i++) {
+      webgl.texImage2D(webgl.TEXTURE_2D, 0, webgl.RGBA, 32, 32, 0, webgl.RGBA, configs[i].type, null);
+      webgl.framebufferTexture2D(webgl.FRAMEBUFFER, webgl.COLOR_ATTACHMENT0, webgl.TEXTURE_2D, texture, 0);
+      if (webgl.checkFramebufferStatus(webgl.FRAMEBUFFER) === webgl.FRAMEBUFFER_COMPLETE) {
+        this.#config = configs[i];
+        return configs[i];
+      }
     }
   }
-  requestAnimationFrame(step);
-};
-
-Ripples.DEFAULTS = {
-  imageUrl: null,
-  resolution: 256,
-  dropRadius: 20,
-  perturbance: 0.03,
-  interactive: true,
-  crossOrigin: '',
-  rain: true
-};
-
-Ripples.prototype = {
-  // Set up pointer (mouse + touch) events
+  static initRipples(el, option) {
+    const opt = Object.assign({}, WaterRipple.defaultOptions, option)
+    const ripple =  new WaterRipple(el, opt)
+    // setTimeout(()=>{
+      const dropping = ()=>{    // 自动滴水
+        var x = Math.random() * el.offsetWidth;
+        var y = Math.random() * el.offsetHeight;
+        var dropRadius = 20;
+        var strength = 0.04 + Math.random() * 0.04;
+        if(ripple.running){
+          ripple.drop(x, y, dropRadius, strength);
+        }
+        setTimeout(dropping, 1000);
+      }
+      if(opt.rain){
+        dropping()
+      }
+    // }, 0)
+    return ripple
+  }
+  context = null
+  createProgram(vertexSource, fragmentSource, uniformValues) {
+    function compileSource(type, source) {
+      const shader = gl.createShader(type);
+      gl.shaderSource(shader, source);
+      gl.compileShader(shader);
+      if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+        throw new Error('compile error: ' + gl.getShaderInfoLog(shader));
+      }
+      return shader;
+    }
+    const gl = this.context
+    const program = {};
+    program.id = gl.createProgram();
+    gl.attachShader(program.id, compileSource(gl.VERTEX_SHADER, vertexSource));
+    gl.attachShader(program.id, compileSource(gl.FRAGMENT_SHADER, fragmentSource));
+    gl.linkProgram(program.id);
+    if (!gl.getProgramParameter(program.id, gl.LINK_STATUS)) {
+      throw new Error('link error: ' + gl.getProgramInfoLog(program.id));
+    }
+    // Fetch the uniform and attribute locations
+    program.uniforms = {};
+    program.locations = {};
+    gl.useProgram(program.id);
+    gl.enableVertexAttribArray(0);
+    var match, name, regex = /uniform (\w+) (\w+)/g, shaderCode = vertexSource + fragmentSource;
+    while ((match = regex.exec(shaderCode)) != null) {
+      name = match[2];
+      program.locations[name] = gl.getUniformLocation(program.id, name);
+    }
+    return program;
+  }
+  bindTexture(texture, unit) {
+    const gl = this.context
+    gl.activeTexture(gl.TEXTURE0 + (unit || 0));
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+  }
+  constructor(el, options) {
+    if(!this.constructor.#config){
+      this.constructor.#loadConfig()
+    }
+    const config = this.constructor.#config;
+    const that = this;
+    this.el = el
+    this.elCss = window.getComputedStyle(el, null)
+    Object.assign(el.style, {
+      position: 'relative',
+      zIndex: 0,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center bottom',
+      backgroundRepeat: 'no-repeat',
+    })
+    // Init properties from options
+    this.interactive = options.interactive;
+    this.resolution = options.resolution;
+    this.textureDelta = new Float32Array([1 / this.resolution, 1 / this.resolution]);
+    this.perturbance = options.perturbance;
+    this.dropRadius = options.dropRadius;
+    this.crossOrigin = options.crossOrigin;
+    this.imageUrl = options.imageUrl;
+    // Init WebGL canvas
+    var canvas = document.createElement('canvas');
+    canvas.width = this.el.offsetWidth;
+    canvas.height = this.el.offsetHeight;
+    this.canvas = canvas;
+    Object.assign(this.canvas.style, {
+      position: 'absolute',
+      left: 0,
+      top: 0,
+      right: 0,
+      bottom: 0,
+      zIndex: -1
+    })
+    this.el.appendChild(canvas);
+    this.context = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+    const gl = this.context
+    // console.log(gl)
+    // Load extensions
+    config.extensions.forEach((name)=>{
+      gl.getExtension(name);
+    });
+    // Auto-resize when window size changes.
+    this.updateSize = this.updateSize.bind(this)
+    window.addEventListener('resize', this.updateSize);
+    // Init rendertargets for ripple data.
+    this.textures = [];
+    this.frameBuffers = [];
+    this.bufferWriteIndex = 0;
+    this.bufferReadIndex = 1;
+    const arrayType = config.arrayType
+    const textureData = arrayType ? new arrayType(this.resolution * this.resolution * 4) : null;
+    for (var i = 0; i < 2; i++) {
+      const texture = gl.createTexture();
+      const framebuffer = gl.createFramebuffer();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, config.linearSupport ? gl.LINEAR : gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, config.linearSupport ? gl.LINEAR : gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.resolution, this.resolution, 0, gl.RGBA, config.type, textureData);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+      this.textures.push(texture);
+      this.frameBuffers.push(framebuffer);
+    }
+    // Init GL stuff
+    this.quad = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([
+      -1, -1, +1, -1,
+      +1, +1, -1, +1
+    ]), gl.STATIC_DRAW);
+    this.initShaders();
+    this.initTexture();
+    // this.setTransparentTexture();
+    this.loadImage();
+    // Set correct clear color and blend mode (regular alpha blending)
+    gl.clearColor(0, 0, 0, 0);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    // Plugin is successfully initialized!
+    this.visible = true;
+    this.running = true;
+    this.inited = true;
+    this.destroyed = false;
+    this.setupPointerEvents();
+    // Init animation
+    function step() {
+      if (!that.destroyed) {
+        that.step();
+        requestAnimationFrame(step);
+      }
+    }
+    requestAnimationFrame(step);
+  }
   setupPointerEvents() {
     const that = this;
     function dropAtPointer(pointer, big) {
@@ -346,11 +332,10 @@ Ripples.prototype = {
     //     dropAtPointer(touches[i]);
     //   }
     // })
-  },
-  // Load the image either from the options or the element's CSS rules.
+  }
   loadImage() {
     const that = this;
-    gl = this.context;
+    let gl = this.context;
     const newImageSource = this.imageUrl ||
       extractUrl(this.originalCssBackgroundImage) ||
       extractUrl(this.elCss.getPropertyValue('background-image'));
@@ -367,7 +352,7 @@ Ripples.prototype = {
     // Load the texture from a new image.
     const image = new Image;
     image.onload = function() {
-      // gl = that.context;
+      gl = that.context;
       // Only textures with dimensions of powers of two can have repeat wrapping.
       var wrapping = (isPowerOfTwo(image.width) && isPowerOfTwo(image.height)) ? gl.REPEAT : gl.CLAMP_TO_EDGE;
       gl.bindTexture(gl.TEXTURE_2D, that.backgroundTexture);
@@ -381,15 +366,14 @@ Ripples.prototype = {
     };
     // Fall back to a transparent texture when loading the image failed.
     image.onerror = function() {
-      // gl = that.context;
+      gl = that.context;
       that.setTransparentTexture();
     };
     // Disable CORS when the image source is a data URI.
     image.crossOrigin = isDataUri(this.imageSource) ? null : this.crossOrigin;
     image.src = this.imageSource;
-  },
+  }
   step() {
-    gl = this.context;
     if (!this.visible) {
       return;
     }
@@ -398,20 +382,22 @@ Ripples.prototype = {
       this.update();
     }
     this.render();
-  },
+  }
   drawQuad() {
+    const gl = this.context
     gl.bindBuffer(gl.ARRAY_BUFFER, this.quad);
     gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
-  },
+  }
   render() {
+    const gl = this.context
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, this.canvas.width, this.canvas.height);
     gl.enable(gl.BLEND);
     gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.useProgram(this.renderProgram.id);
-    bindTexture(this.backgroundTexture, 0);
-    bindTexture(this.textures[0], 1);
+    this.bindTexture(this.backgroundTexture, 0);
+    this.bindTexture(this.textures[0], 1);
     gl.uniform1f(this.renderProgram.locations.perturbance, this.perturbance);
     gl.uniform2fv(this.renderProgram.locations.topLeft, this.renderProgram.uniforms.topLeft);
     gl.uniform2fv(this.renderProgram.locations.bottomRight, this.renderProgram.uniforms.bottomRight);
@@ -420,19 +406,20 @@ Ripples.prototype = {
     gl.uniform1i(this.renderProgram.locations.samplerRipples, 1);
     this.drawQuad();
     gl.disable(gl.BLEND);
-  },
+  }
   update() {
+    const gl = this.context
     gl.viewport(0, 0, this.resolution, this.resolution);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffers[this.bufferWriteIndex]);
-    bindTexture(this.textures[this.bufferReadIndex]);
+    this.bindTexture(this.textures[this.bufferReadIndex]);
     gl.useProgram(this.updateProgram.id);
     this.drawQuad();
     this.swapBufferIndices();
-  },
+  }
   swapBufferIndices() {
     this.bufferWriteIndex = 1 - this.bufferWriteIndex;
     this.bufferReadIndex = 1 - this.bufferReadIndex;
-  },
+  }
   computeTextureBoundaries() {
     var backgroundSize = this.elCss.getPropertyValue('background-size');
     var backgroundAttachment = this.elCss.getPropertyValue('background-attachment');
@@ -519,8 +506,9 @@ Ripples.prototype = {
       this.canvas.width / maxSide,
       this.canvas.height / maxSide
     ]);
-  },
+  }
   initShaders() {
+    const gl = this.context
     const vertexShader = [
       'attribute vec2 vertex;',
       'varying vec2 coord;',
@@ -529,7 +517,7 @@ Ripples.prototype = {
         'gl_Position = vec4(vertex, 0.0, 1.0);',
       '}'
     ].join('\n');
-    this.dropProgram = createProgram(vertexShader, [
+    this.dropProgram = this.createProgram(vertexShader, [
       'precision highp float;',
       'const float PI = 3.141592653589793;',
       'uniform sampler2D texture;',
@@ -546,7 +534,7 @@ Ripples.prototype = {
       '}'
     ].join('\n'));
 
-    this.updateProgram = createProgram(vertexShader, [
+    this.updateProgram = this.createProgram(vertexShader, [
       'precision highp float;',
       'uniform sampler2D texture;',
       'uniform vec2 delta;',
@@ -569,7 +557,7 @@ Ripples.prototype = {
     ].join('\n'));
     gl.uniform2fv(this.updateProgram.locations.delta, this.textureDelta);
 
-    this.renderProgram = createProgram([
+    this.renderProgram = this.createProgram([
       'precision highp float;',
       'attribute vec2 vertex;',
       'uniform vec2 topLeft;',
@@ -603,19 +591,21 @@ Ripples.prototype = {
       '}'
     ].join('\n'));
     gl.uniform2fv(this.renderProgram.locations.delta, this.textureDelta);
-  },
+  }
   initTexture() {
+    const gl = this.context
     this.backgroundTexture = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, this.backgroundTexture);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, 1);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-  },
+  }
   setTransparentTexture() {
+    const gl = this.context
     const transparentPixels = createImageData(32, 32);
     gl.bindTexture(gl.TEXTURE_2D, this.backgroundTexture);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, transparentPixels);
-  },
+  }
   hideCssBackground() {
     // Check whether we're changing inline CSS or overriding a global CSS rule.
     var inlineCss = this.elCss.getPropertyValue('background-image');
@@ -625,12 +615,12 @@ Ripples.prototype = {
     this.originalInlineCss = inlineCss;
     this.originalCssBackgroundImage = this.elCss.getPropertyValue('background-image');
     this.elCss.getPropertyValue('background-image', 'none');
-  },
+  }
   restoreCssBackground() {
     // Restore background by either changing the inline CSS rule to what it was, or
     // simply remove the inline CSS rule if it never was inlined.
     this.elCss.getPropertyValue('background-image', this.originalInlineCss || '');
-  },
+  }
   dropAtPointer(pointer, radius, strength) {
     var borderLeft = parseInt(this.elCss.getPropertyValue('border-left-width')) || 0,
         borderTop = parseInt(this.elCss.getPropertyValue('border-top-width')) || 0;
@@ -640,9 +630,9 @@ Ripples.prototype = {
       radius,
       strength
     );
-  },
+  }
   drop(x, y, radius, strength) {
-    gl = this.context;
+    const gl = this.context
     var elWidth = this.el.offsetWidth;
     var elHeight = this.el.offsetHeight;
     var longestSide = Math.max(elWidth, elHeight);
@@ -653,14 +643,14 @@ Ripples.prototype = {
     ]);
     gl.viewport(0, 0, this.resolution, this.resolution);
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.frameBuffers[this.bufferWriteIndex]);
-    bindTexture(this.textures[this.bufferReadIndex]);
+    this.bindTexture(this.textures[this.bufferReadIndex]);
     gl.useProgram(this.dropProgram.id);
     gl.uniform2fv(this.dropProgram.locations.center, dropPosition);
     gl.uniform1f(this.dropProgram.locations.radius, radius);
     gl.uniform1f(this.dropProgram.locations.strength, strength);
     this.drawQuad();
     this.swapBufferIndices();
-  },
+  }
   updateSize() {
     var newWidth = this.el.offsetWidth,
         newHeight = this.el.offsetHeight;
@@ -668,34 +658,34 @@ Ripples.prototype = {
       this.canvas.width = newWidth;
       this.canvas.height = newHeight;
     }
-  },
+  }
   destroy() {
     // this.$el
     //   .off('.ripples')
     //   .removeData('ripples');
     // Make sure the last used context is garbage-collected
-    gl = null
+    this.context = null
     window.removeEventListener('resize', this.updateSize);
     this.el.removeChild(this.canvas);
     this.restoreCssBackground();
     this.destroyed = true;
-  },
+  }
   show() {
     this.visible = true;
     this.canvas.style.display=='';
     this.hideCssBackground();
-  },
+  }
   hide() {
     this.visible = false;
     this.canvas.style.display=='none';
     this.restoreCssBackground();
-  },
+  }
   pause() {
     this.running = false;
-  },
+  }
   play() {
     this.running = true;
-  },
+  }
   set(property, value) {
     switch (property) {
       case 'dropRadius':
@@ -710,25 +700,4 @@ Ripples.prototype = {
         break;
     }
   }
-};
-
-export default function initRipples(el, option) {
-  const opt = Object.assign({}, Ripples.DEFAULTS, option)
-  const ripple =  new Ripples(el, opt)
-  // setTimeout(()=>{
-    const dropping = ()=>{    // 自动滴水
-      var x = Math.random() * el.offsetWidth;
-      var y = Math.random() * el.offsetHeight;
-      var dropRadius = 20;
-      var strength = 0.04 + Math.random() * 0.04;
-      if(ripple.running){
-        ripple.drop(x, y, dropRadius, strength);
-      }
-      setTimeout(dropping, 1000);
-    }
-    if(opt.rain){
-      dropping()
-    }
-  // }, 0)
-  return ripple
 }
