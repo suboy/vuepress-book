@@ -1,0 +1,1 @@
+const t=JSON.parse('{"key":"v-4a4e4ffb","path":"/wp/2021/php_nginx.html","title":"安装PHP并配置nginx","lang":"zh-CN","frontmatter":{"title":"安装PHP并配置nginx","date":"2021-03-16"},"headers":[],"git":{"updatedTime":1685534301000,"contributors":[{"name":"qigang","email":"suboy13@163.com","commits":2}]},"filePathRelative":"wp/2021/php_nginx.md"}');export{t as data};

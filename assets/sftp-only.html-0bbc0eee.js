@@ -1,0 +1,1 @@
+const t=JSON.parse('{"key":"v-0b8926bb","path":"/wp/2019/sftp-only.html","title":"添加sftp only帐号","lang":"zh-CN","frontmatter":{"title":"添加sftp only帐号","date":"2019-07-15"},"headers":[],"git":{"updatedTime":1685534301000,"contributors":[{"name":"qigang","email":"suboy13@163.com","commits":2}]},"filePathRelative":"wp/2019/sftp-only.md"}');export{t as data};
