@@ -1,3 +1,8 @@
+---
+home: true
+footerHtml: true
+footer: Copyright © 2024 <br>粤ICP备16115095号-1
+---
 # Hello VuePress
 
 - [Home](/) <!-- 跳转到根部的 README.md -->

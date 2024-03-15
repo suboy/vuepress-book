@@ -1,4 +1,5 @@
 import { defineUserConfig } from 'vuepress'
+import { viteBundler } from '@vuepress/bundler-vite'
 import { defaultTheme } from '@vuepress/theme-default'
 import { googleAnalyticsPlugin } from '@vuepress/plugin-google-analytics'
 // import { registerComponentsPlugin } from '@vuepress/plugin-register-components'
@@ -28,6 +29,10 @@ export default defineUserConfig({
     },
     ...mdList
     ]
+  }),
+  bundler: viteBundler({
+    viteOptions: {},
+    vuePluginOptions: {},
   }),
   plugins: [
     googleAnalyticsPlugin({
