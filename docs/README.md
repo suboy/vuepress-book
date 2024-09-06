@@ -1,8 +1,9 @@
 ---
 home: true
 footerHtml: true
-footer: Copyright © 2024 <br>粤ICP备16115095号-1
+footer: Copyright © 2024 <a href="https://beian.miit.gov.cn/" target="_blank">粤ICP备16115095号-1</a>
 ---
+
 # Hello VuePress
 
 - [Home](/) <!-- 跳转到根部的 README.md -->
