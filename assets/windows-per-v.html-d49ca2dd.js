@@ -1,4 +1,4 @@
-import{_ as e,o as i,c as n,f as s}from"./app-da893a5a.js";const t={},a=s(`<p>执行以下bat:</p><div class="language-bat line-numbers-mode" data-ext="bat"><pre class="language-bat"><code>pushd &quot;%~dp0&quot;
+import{_ as e,o as i,c as n,f as s}from"./app-470db377.js";const t={},a=s(`<p>执行以下bat:</p><div class="language-bat line-numbers-mode" data-ext="bat"><pre class="language-bat"><code>pushd &quot;%~dp0&quot;
 
 dir /b %SystemRoot%\\\\servicing\\\\Packages\\*Hyper-V\\*.mum &gt;hyper-v.txt
 
